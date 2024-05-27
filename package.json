@@ -11,7 +11,10 @@
   },
   "dependencies": {
     "react": "18.2.0",
-    "react-native": "0.74.1"
+    "react-native": "0.74.1",
+    "react-native-camera-kit": "^13.0.0",
+    "react-native-fs": "^2.20.0",
+    "react-native-permissions": "^4.1.5"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
