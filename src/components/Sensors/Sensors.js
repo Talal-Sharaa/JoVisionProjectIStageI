@@ -36,11 +36,16 @@ const Sensors = () => {
   const {latitude, longitude, altitude, speed} = location || {};
   useEffect(() => {
     const throttledLog = throttle(({x, y, z, timestamp}) => {
-      setGyroscopeData({x, y, z, timestamp});
+      // Convert radian to degree
+      const xDegree = x * (180 / Math.PI);
+      const yDegree = y * (180 / Math.PI);
+      const zDegree = z * (180 / Math.PI);
+
+      setGyroscopeData({xDegree, yDegree, zDegree, timestamp});
       console.log(
-        Number(gyroscopeData.x).toFixed(5),
-        Number(gyroscopeData.y).toFixed(5),
-        Number(gyroscopeData.z).toFixed(5),
+        Number(xDegree).toFixed(5),
+        Number(yDegree).toFixed(5),
+        Number(zDegree).toFixed(5),
       );
     }, 500);
     const subscription = gyroscope.subscribe(throttledLog);
@@ -59,9 +64,9 @@ const Sensors = () => {
       <Text style={styles.text}>
         Orientation:{' '}
         {gyroscopeData
-          ? `${Number(gyroscopeData.x).toFixed(5)}, ${Number(
-              gyroscopeData.y,
-            ).toFixed(5)}, ${Number(gyroscopeData.z).toFixed(5)}`
+          ? `${Number(gyroscopeData.xDegree).toFixed(5)}, ${Number(
+              gyroscopeData.yDegree,
+            ).toFixed(5)}, ${Number(gyroscopeData.zDegree).toFixed(5)}`
           : 'Fetching...'}
       </Text>
       {error && <Text style={styles.errorText}>Error: {error}</Text>}
