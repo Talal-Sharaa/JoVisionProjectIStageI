@@ -25,6 +25,7 @@ import {
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
 import CameraComponent from './src/components/CameraComponent/CameraComponent';
+import NavBar from './src/components/NavBar/NavBar';
 type SectionProps = PropsWithChildren<{
   title: string;
 }>;
@@ -72,7 +73,7 @@ function App(): React.JSX.Element {
         contentInsetAdjustmentBehavior="automatic"
         style={backgroundStyle}>
         <View>
-          <CameraComponent />
+          <NavBar />
         </View>
       </ScrollView>
     </SafeAreaView>
