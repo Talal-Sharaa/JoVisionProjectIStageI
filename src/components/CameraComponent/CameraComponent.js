@@ -1,4 +1,5 @@
-import React, {useRef, useState, useEffect} from 'react';
+// CameraComponent.js
+import React, {useRef, useState, useEffect, useContext} from 'react';
 import {
   View,
   Text,
@@ -10,13 +11,17 @@ import {
   Modal,
 } from 'react-native';
 import {Camera, CameraType} from 'react-native-camera-kit';
-import RNFS from 'react-native-fs'; // Make sure to install this package
+import RNFS from 'react-native-fs';
+import {useNavigation} from '@react-navigation/native';
+import {PhotoContext} from '../PhotoContext';
 
 const CameraComponent = () => {
   const {height, width} = useWindowDimensions();
   const cameraRef = useRef(null);
   const [photo, setPhoto] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const {savedPhotos, setSavedPhotos} = useContext(PhotoContext);
+  const navigation = useNavigation();
 
   useEffect(() => {
     const requestPermissions = async () => {
@@ -77,11 +82,11 @@ const CameraComponent = () => {
       const directoryPath = `${RNFS.ExternalStorageDirectoryPath}/DCIM/Jovision`;
       const filePath = `${directoryPath}/photo_${Date.now()}.jpg`;
       try {
-        // Check if the directory exists, if not create it
         if (!(await RNFS.exists(directoryPath))) {
           await RNFS.mkdir(directoryPath);
         }
         await RNFS.moveFile(photo, filePath);
+        setSavedPhotos(prevPhotos => [...prevPhotos, filePath]);
         console.log('Photo saved to:', filePath);
       } catch (error) {
         console.error('Failed to save photo:', error);
@@ -94,7 +99,7 @@ const CameraComponent = () => {
     <View style={styles.container}>
       <Camera
         ref={cameraRef}
-        cameraType={CameraType.Front} // front/back(default)
+        cameraType={CameraType.Front}
         flashMode="auto"
         style={{height, width}}
       />
