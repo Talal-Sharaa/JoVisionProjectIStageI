@@ -1,4 +1,3 @@
-// CameraComponent.js
 import React, {useRef, useState, useEffect, useContext} from 'react';
 import {
   View,

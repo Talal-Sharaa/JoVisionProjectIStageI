@@ -1,25 +1,28 @@
 import React from 'react';
-import {View, Text, StyleSheet, useWindowDimensions} from 'react-native';
-import styles from './NavBar.styles';
+import {useWindowDimensions} from 'react-native';
 import {createMaterialBottomTabNavigator} from '@react-navigation/material-bottom-tabs';
-const Tab = createMaterialBottomTabNavigator();
+import {NavigationContainer} from '@react-navigation/native';
 import CameraComponent from '../CameraComponent/CameraComponent';
 import Sensors from '../Sensors/Sensors';
-import {NavigationContainer} from '@react-navigation/native';
 import Gallery from '../Gallery/Gallery';
 import {PhotoProvider} from '../PhotoContext';
+import SlideShow from '../SlideShow/SlideShow';
+const Tab = createMaterialBottomTabNavigator();
+
 const NavBar = () => {
   const {width, height} = useWindowDimensions();
   return (
     <PhotoProvider>
       <NavigationContainer>
-        <Tab.Navigator style={{width: width, height: height}}>
+        <Tab.Navigator style={{width, height}}>
           <Tab.Screen name="Camera" component={CameraComponent} />
           <Tab.Screen name="Sensors" component={Sensors} />
           <Tab.Screen name="Gallery" component={Gallery} />
+          <Tab.Screen name="SlideShow" component={SlideShow} />
         </Tab.Navigator>
       </NavigationContainer>
     </PhotoProvider>
   );
 };
+
 export default NavBar;
