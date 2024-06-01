@@ -15,26 +15,10 @@ const NavBar = () => {
     <PhotoProvider>
       <NavigationContainer>
         <Tab.Navigator style={{width, height}}>
-          <Tab.Screen
-            name="Camera"
-            component={CameraComponent}
-            options={{unmountOnBlur: true}}
-          />
-          <Tab.Screen
-            name="Sensors"
-            component={Sensors}
-            options={{unmountOnBlur: true}}
-          />
-          <Tab.Screen
-            name="Gallery"
-            component={Gallery}
-            options={{unmountOnBlur: true}}
-          />
-          <Tab.Screen
-            name="SlideShow"
-            component={SlideShow}
-            options={{unmountOnBlur: true}}
-          />
+          <Tab.Screen name="Camera" component={CameraComponent} />
+          <Tab.Screen name="Sensors" component={Sensors} />
+          <Tab.Screen name="Gallery" component={Gallery} />
+          <Tab.Screen name="SlideShow" component={SlideShow} />
         </Tab.Navigator>
       </NavigationContainer>
     </PhotoProvider>
