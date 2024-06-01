@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import ImageView from 'react-native-image-viewing';
 import {PhotoContext} from '../PhotoContext';
+import {useFocusEffect} from '@react-navigation/native';
 
 const GalleryComponent = () => {
   const {savedPhotos} = useContext(PhotoContext);
@@ -22,6 +23,15 @@ const GalleryComponent = () => {
   const numColumns = 3;
   const {width} = Dimensions.get('window');
   const imageSize = (width - 40) / numColumns;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        setIsVisible(false);
+        setCurrentIndex(0);
+      };
+    }, [])
+  );
 
   return (
     <View style={styles.container}>

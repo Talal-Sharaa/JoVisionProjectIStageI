@@ -3,54 +3,63 @@ import {View, Text, StyleSheet} from 'react-native';
 import GetLocation from 'react-native-get-location';
 import {gyroscope} from 'react-native-sensors';
 import {throttle} from 'lodash';
+import {useFocusEffect} from '@react-navigation/native';
 
 const Sensors = () => {
   const [location, setLocation] = useState(null);
   const [error, setError] = useState(null);
   const [gyroscopeData, setGyroscopeData] = useState(null);
-  useEffect(() => {
-    const fetchLocation = () => {
-      GetLocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 60000,
-      })
-        .then(location => {
-          console.log(location);
-          setLocation(location);
-          setError(null); // Clear previous errors if successful
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchLocation = () => {
+        GetLocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 60000,
         })
-        .catch(error => {
-          const {code, message} = error;
-          console.warn(code, message);
-          setError(message);
-        });
-    };
+          .then(location => {
+            console.log(location);
+            setLocation(location);
+            setError(null); // Clear previous errors if successful
+          })
+          .catch(error => {
+            const {code, message} = error;
+            console.warn(code, message);
+            setError(message);
+          });
+      };
 
-    fetchLocation();
+      fetchLocation();
 
-    const intervalId = setInterval(fetchLocation, 10000);
+      const intervalId = setInterval(fetchLocation, 10000);
 
-    return () => clearInterval(intervalId);
-  }, []);
+      const throttledLog = throttle(({x, y, z, timestamp}) => {
+        // Convert radian to degree
+        const xDegree = x * (180 / Math.PI);
+        const yDegree = y * (180 / Math.PI);
+        const zDegree = z * (180 / Math.PI);
+
+        setGyroscopeData({xDegree, yDegree, zDegree, timestamp});
+        console.log(
+          Number(xDegree).toFixed(5),
+          Number(yDegree).toFixed(5),
+          Number(zDegree).toFixed(5),
+        );
+      }, 500);
+
+      const subscription = gyroscope.subscribe(throttledLog);
+
+      return () => {
+        clearInterval(intervalId);
+        subscription.unsubscribe();
+        setLocation(null);
+        setGyroscopeData(null);
+        setError(null);
+      };
+    }, [])
+  );
 
   const {latitude, longitude, altitude, speed} = location || {};
-  useEffect(() => {
-    const throttledLog = throttle(({x, y, z, timestamp}) => {
-      // Convert radian to degree
-      const xDegree = x * (180 / Math.PI);
-      const yDegree = y * (180 / Math.PI);
-      const zDegree = z * (180 / Math.PI);
-
-      setGyroscopeData({xDegree, yDegree, zDegree, timestamp});
-      console.log(
-        Number(xDegree).toFixed(5),
-        Number(yDegree).toFixed(5),
-        Number(zDegree).toFixed(5),
-      );
-    }, 500);
-    const subscription = gyroscope.subscribe(throttledLog);
-    return () => subscription.unsubscribe();
-  }, []);
   return (
     <View style={styles.container}>
       <Text style={styles.text}>Sensors Component</Text>

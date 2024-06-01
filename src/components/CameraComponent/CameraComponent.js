@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import {Camera, CameraType} from 'react-native-camera-kit';
 import RNFS from 'react-native-fs';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {PhotoContext} from '../PhotoContext';
 
 const CameraComponent = () => {
@@ -63,6 +63,16 @@ const CameraComponent = () => {
 
     requestPermissions();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+
+      return () => {
+        setPhoto(null);
+        setModalVisible(false);
+      };
+    }, []),
+  );
 
   const takePicture = async () => {
     if (cameraRef.current) {
