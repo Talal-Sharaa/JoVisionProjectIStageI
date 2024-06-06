@@ -13,6 +13,8 @@ import {Camera, CameraType} from 'react-native-camera-kit';
 import RNFS from 'react-native-fs';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {PhotoContext} from '../PhotoContext';
+import {Svg, Path} from 'react-native-svg';
+import CameraIcon from '../../assets/flip-camera-ios.svg';
 
 const CameraComponent = () => {
   const {height, width} = useWindowDimensions();
@@ -21,7 +23,7 @@ const CameraComponent = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const {savedPhotos, setSavedPhotos} = useContext(PhotoContext);
   const navigation = useNavigation();
-
+  const [cameraDirection, setCameraDirection] = useState(CameraType.Front);
   useEffect(() => {
     const requestPermissions = async () => {
       if (Platform.OS === 'android') {
@@ -66,7 +68,6 @@ const CameraComponent = () => {
 
   useFocusEffect(
     React.useCallback(() => {
-
       return () => {
         setPhoto(null);
         setModalVisible(false);
@@ -108,14 +109,31 @@ const CameraComponent = () => {
     <View style={styles.container}>
       <Camera
         ref={cameraRef}
-        cameraType={CameraType.Front}
+        cameraType={cameraDirection}
         flashMode="auto"
         style={{height, width}}
       />
       <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
         <Text style={styles.buttonText}>Capture</Text>
       </TouchableOpacity>
-
+      <TouchableOpacity
+        style={styles.flipCameraButton}
+        onPress={() =>
+          setCameraDirection(
+            cameraDirection === CameraType.Front
+              ? CameraType.Back
+              : CameraType.Front,
+          )
+        }>
+        <View
+          style={{
+            position: 'absolute',
+            justifyContent: 'flex-start',
+            alignItems: 'flex-start',
+          }}>
+          <CameraIcon width="70" height="50" />
+        </View>
+      </TouchableOpacity>
       <Modal
         animationType="slide"
         transparent={true}
@@ -150,6 +168,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  flipCameraButton: {
+    position: 'absolute',
+    bottom: 30, // adjust this value as needed
+    left: 50,
+    alignSelf: 'center',
+    // other styles...
+    backgroundColor: 'white',
+    borderRadius: 50,
+    width: 70,
+    height: 70,
   },
   captureButton: {
     position: 'absolute',
