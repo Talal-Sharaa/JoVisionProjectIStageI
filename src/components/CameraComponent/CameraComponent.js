@@ -24,7 +24,8 @@ const CameraComponent = () => {
   const {savedPhotos, setSavedPhotos} = useContext(PhotoContext);
   const navigation = useNavigation();
   const [isRecording, setIsRecording] = useState(false);
-  const device = useCameraDevice('back');
+  const [isBackCamera, setIsBackCamera] = useState(true); // State to manage the camera direction
+  const device = isBackCamera ? useCameraDevice('back') : useCameraDevice('front');
 
   useEffect(() => {
     const requestPermissions = async () => {
@@ -144,6 +145,10 @@ const CameraComponent = () => {
     }
   };
 
+  const flipCamera = () => {
+    setIsBackCamera(!isBackCamera);
+  };
+
   if (!device) {
     return (
       <View style={styles.container}>
@@ -178,16 +183,13 @@ const CameraComponent = () => {
             {isRecording ? 'Stop' : 'Record'}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.flipCameraButton}
+          onPress={flipCamera}>
+          <Text style={styles.buttonText}>Flip</Text>
+        </TouchableOpacity>
       </View>
 
-      <View
-        style={{
-          position: 'absolute',
-          justifyContent: 'flex-start',
-          alignItems: 'flex-start',
-        }}>
-        <CameraIcon width="70" height="50" />
-      </View>
       <Modal
         animationType="slide"
         transparent={true}
@@ -235,14 +237,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   flipCameraButton: {
-    position: 'absolute',
-    bottom: 30, // adjust this value as needed
-    left: 50,
-    alignSelf: 'center',
+    marginHorizontal: 20,
     backgroundColor: 'white',
     borderRadius: 50,
     width: 70,
     height: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   captureButton: {
     marginHorizontal: 20,

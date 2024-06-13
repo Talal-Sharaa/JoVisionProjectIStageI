@@ -14,6 +14,7 @@
     "react": "18.2.0",
     "react-native": "0.74.1",
     "react-native-camera-kit": "^13.0.0",
+    "react-native-create-thumbnail": "^2.0.0",
     "react-native-document-picker": "^9.3.0",
     "react-native-fs": "^2.20.0",
     "react-native-get-location": "^4.0.1",
@@ -28,6 +29,7 @@
     "react-native-svg": "^15.3.0",
     "react-native-swiper": "^1.6.0",
     "react-native-vector-icons": "^10.1.0",
+    "react-native-video": "^6.2.0",
     "react-native-vision-camera": "^4.3.1",
     "react-navigation": "^5.0.0"
   },
