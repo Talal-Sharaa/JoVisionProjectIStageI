@@ -1325,6 +1325,11 @@
     prompts "^2.4.2"
     semver "^7.5.2"
 
+"@react-native-menu/menu@^1.1.2":
+  version "1.1.2"
+  resolved "https://registry.npmjs.org/@react-native-menu/menu/-/menu-1.1.2.tgz"
+  integrity sha512-I7JWiwmIwRp+Tee2OJHPwzVKdLjzgUkdChHQ75oyEWo1YcVsXEjLVGmxWCTA6JExzS6SQW/ACmjuXLJFTvu9Pw==
+
 "@react-native/assets-registry@0.74.83":
   version "0.74.83"
 
