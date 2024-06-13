@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   Modal,
 } from 'react-native';
-import {Camera, CameraType} from 'react-native-camera-kit';
+import {Camera, useCameraDevice} from 'react-native-vision-camera';
 import RNFS from 'react-native-fs';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {PhotoContext} from '../PhotoContext';
@@ -18,13 +18,13 @@ import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 
 const CameraComponent = () => {
   const {height, width} = useWindowDimensions();
-  const cameraRef = useRef(null);
+  const camera = useRef(null);
   const [photo, setPhoto] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const {savedPhotos, setSavedPhotos} = useContext(PhotoContext);
   const navigation = useNavigation();
-  const [cameraDirection, setCameraDirection] = useState(CameraType.Front);
   const [isRecording, setIsRecording] = useState(false);
+  const device = useCameraDevice('back');
 
   useEffect(() => {
     const requestPermissions = async () => {
@@ -36,14 +36,12 @@ const CameraComponent = () => {
             PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE,
           );
 
-          if (cameraGranted !== RESULTS.GRANTED) {
-            console.log('Camera permission denied');
-          }
-          if (audioGranted !== RESULTS.GRANTED) {
-            console.log('Audio permission denied');
-          }
-          if (storageGranted !== RESULTS.GRANTED) {
-            console.log('External storage write permission denied');
+          if (
+            cameraGranted !== RESULTS.GRANTED ||
+            audioGranted !== RESULTS.GRANTED ||
+            storageGranted !== RESULTS.GRANTED
+          ) {
+            console.log('One or more permissions denied');
           }
         } catch (err) {
           console.warn(err);
@@ -64,10 +62,11 @@ const CameraComponent = () => {
   );
 
   const takePicture = async () => {
-    if (cameraRef.current) {
+    if (camera.current) {
       try {
-        const image = await cameraRef.current.capture();
-        setPhoto(image.uri);
+        const photo = await camera.current.takePhoto();
+        console.log('Photo taken:', photo);
+        setPhoto(photo.path); // Ensure the correct property is used
         setModalVisible(true);
       } catch (error) {
         console.error('Failed to take picture:', error);
@@ -76,16 +75,23 @@ const CameraComponent = () => {
   };
 
   const startRecording = async () => {
-    if (cameraRef.current && cameraRef.current.startRecording && !isRecording) {
+    if (camera.current && !isRecording) {
       try {
         setIsRecording(true);
-        const video = await cameraRef.current.startRecording({
+        await camera.current.startRecording({
           maxDuration: 60, // Set max duration if needed
           flashMode: 'off',
+          onRecordingFinished: video => {
+            console.log('Recording finished:', video);
+            setPhoto(video.path); // Ensure the correct property is used
+            setModalVisible(true);
+          },
+          onRecordingError: error => {
+            console.error('Recording error:', error);
+            setIsRecording(false);
+          },
         });
         console.log('Recording started');
-        setPhoto(video.uri); // Save the video URI in the photo state for modal handling
-        setModalVisible(true);
       } catch (error) {
         console.error('Failed to start recording:', error);
         setIsRecording(false);
@@ -94,11 +100,10 @@ const CameraComponent = () => {
   };
 
   const stopRecording = async () => {
-    if (cameraRef.current && isRecording) {
+    if (camera.current && isRecording) {
       try {
-        await cameraRef.current.stopRecording();
+        await camera.current.stopRecording();
         console.log('Recording stopped');
-        setIsRecording(false);
       } catch (error) {
         console.error('Failed to stop recording:', error);
       }
@@ -106,32 +111,58 @@ const CameraComponent = () => {
   };
 
   const saveMedia = async () => {
+    console.log('Attempting to save media:', photo);
     if (photo) {
       const directoryPath = `${RNFS.ExternalStorageDirectoryPath}/DCIM/Jovision`;
       const filePath = `${directoryPath}/media_${Date.now()}.${
-        isRecording ? 'mp4' : 'jpg'
+        isRecording ? 'mov' : 'jpg'
       }`;
+
       try {
+        // Ensure the directory exists
         if (!(await RNFS.exists(directoryPath))) {
           await RNFS.mkdir(directoryPath);
         }
+
+        // Move the media file
         await RNFS.moveFile(photo, filePath);
+
+        // Update the savedPhotos context
         setSavedPhotos(prevPhotos => [...prevPhotos, filePath]);
+
         console.log('Media saved to:', filePath);
+
+        // Reset states after saving
+        setPhoto(null);
+        setModalVisible(false);
+        setIsRecording(false);
       } catch (error) {
         console.error('Failed to save media:', error);
       }
-      setModalVisible(false);
+    } else {
+      console.warn('No photo to save');
     }
   };
+
+  if (!device) {
+    return (
+      <View style={styles.container}>
+        <Text>Loading camera...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <Camera
-        ref={cameraRef}
-        cameraType={cameraDirection}
+        device={device}
+        ref={camera}
         flashMode="auto"
         style={{height, width}}
+        photo={true}
+        video={true}
+        audio={true}
+        isActive={true}
       />
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
@@ -148,24 +179,15 @@ const CameraComponent = () => {
           </Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={styles.flipCameraButton}
-        onPress={() =>
-          setCameraDirection(
-            cameraDirection === CameraType.Front
-              ? CameraType.Back
-              : CameraType.Front,
-          )
-        }>
-        <View
-          style={{
-            position: 'absolute',
-            justifyContent: 'flex-start',
-            alignItems: 'flex-start',
-          }}>
-          <CameraIcon width="70" height="50" />
-        </View>
-      </TouchableOpacity>
+
+      <View
+        style={{
+          position: 'absolute',
+          justifyContent: 'flex-start',
+          alignItems: 'flex-start',
+        }}>
+        <CameraIcon width="70" height="50" />
+      </View>
       <Modal
         animationType="slide"
         transparent={true}
