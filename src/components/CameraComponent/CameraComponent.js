@@ -207,7 +207,10 @@ const CameraComponent = () => {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, styles.buttonClose]}
-              onPress={() => setModalVisible(!modalVisible)}>
+              onPress={() => {
+                setModalVisible(!modalVisible);
+                setIsRecording(false);
+              }}>
               <Text style={styles.textStyle}>No</Text>
             </TouchableOpacity>
           </View>
