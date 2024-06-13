@@ -13,8 +13,8 @@ import {Camera, CameraType} from 'react-native-camera-kit';
 import RNFS from 'react-native-fs';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {PhotoContext} from '../PhotoContext';
-import {Svg, Path} from 'react-native-svg';
 import CameraIcon from '../../assets/flip-camera-ios.svg';
+import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 
 const CameraComponent = () => {
   const {height, width} = useWindowDimensions();
@@ -24,37 +24,25 @@ const CameraComponent = () => {
   const {savedPhotos, setSavedPhotos} = useContext(PhotoContext);
   const navigation = useNavigation();
   const [cameraDirection, setCameraDirection] = useState(CameraType.Front);
+  const [isRecording, setIsRecording] = useState(false);
+
   useEffect(() => {
     const requestPermissions = async () => {
       if (Platform.OS === 'android') {
         try {
-          const cameraGranted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.CAMERA,
-            {
-              title: 'Camera Permission',
-              message: 'This app needs camera access to take pictures',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
-            },
+          const cameraGranted = await request(PERMISSIONS.ANDROID.CAMERA);
+          const audioGranted = await request(PERMISSIONS.ANDROID.RECORD_AUDIO);
+          const storageGranted = await request(
+            PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE,
           );
 
-          const storageGranted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-            {
-              title: 'External Storage Write Permission',
-              message:
-                'This app needs write access to your storage to save photos',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
-            },
-          );
-
-          if (cameraGranted !== PermissionsAndroid.RESULTS.GRANTED) {
+          if (cameraGranted !== RESULTS.GRANTED) {
             console.log('Camera permission denied');
           }
-          if (storageGranted !== PermissionsAndroid.RESULTS.GRANTED) {
+          if (audioGranted !== RESULTS.GRANTED) {
+            console.log('Audio permission denied');
+          }
+          if (storageGranted !== RESULTS.GRANTED) {
             console.log('External storage write permission denied');
           }
         } catch (err) {
@@ -87,19 +75,51 @@ const CameraComponent = () => {
     }
   };
 
-  const savePhoto = async () => {
+  const startRecording = async () => {
+    if (cameraRef.current && cameraRef.current.startRecording && !isRecording) {
+      try {
+        setIsRecording(true);
+        const video = await cameraRef.current.startRecording({
+          maxDuration: 60, // Set max duration if needed
+          flashMode: 'off',
+        });
+        console.log('Recording started');
+        setPhoto(video.uri); // Save the video URI in the photo state for modal handling
+        setModalVisible(true);
+      } catch (error) {
+        console.error('Failed to start recording:', error);
+        setIsRecording(false);
+      }
+    }
+  };
+
+  const stopRecording = async () => {
+    if (cameraRef.current && isRecording) {
+      try {
+        await cameraRef.current.stopRecording();
+        console.log('Recording stopped');
+        setIsRecording(false);
+      } catch (error) {
+        console.error('Failed to stop recording:', error);
+      }
+    }
+  };
+
+  const saveMedia = async () => {
     if (photo) {
       const directoryPath = `${RNFS.ExternalStorageDirectoryPath}/DCIM/Jovision`;
-      const filePath = `${directoryPath}/photo_${Date.now()}.jpg`;
+      const filePath = `${directoryPath}/media_${Date.now()}.${
+        isRecording ? 'mp4' : 'jpg'
+      }`;
       try {
         if (!(await RNFS.exists(directoryPath))) {
           await RNFS.mkdir(directoryPath);
         }
         await RNFS.moveFile(photo, filePath);
         setSavedPhotos(prevPhotos => [...prevPhotos, filePath]);
-        console.log('Photo saved to:', filePath);
+        console.log('Media saved to:', filePath);
       } catch (error) {
-        console.error('Failed to save photo:', error);
+        console.error('Failed to save media:', error);
       }
       setModalVisible(false);
     }
@@ -113,9 +133,21 @@ const CameraComponent = () => {
         flashMode="auto"
         style={{height, width}}
       />
-      <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
-        <Text style={styles.buttonText}>Capture</Text>
-      </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+          <Text style={styles.buttonText}>Capture</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.recordButton,
+            {backgroundColor: isRecording ? 'red' : 'white'},
+          ]}
+          onPress={isRecording ? stopRecording : startRecording}>
+          <Text style={styles.buttonText}>
+            {isRecording ? 'Stop' : 'Record'}
+          </Text>
+        </TouchableOpacity>
+      </View>
       <TouchableOpacity
         style={styles.flipCameraButton}
         onPress={() =>
@@ -142,11 +174,13 @@ const CameraComponent = () => {
           setModalVisible(!modalVisible);
         }}>
         <View style={styles.modalView}>
-          <Text style={styles.modalText}>Do you want to save this photo?</Text>
+          <Text style={styles.modalText}>
+            Do you want to save this {isRecording ? 'video' : 'photo'}?
+          </Text>
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={[styles.button, styles.buttonSave]}
-              onPress={savePhoto}>
+              onPress={saveMedia}>
               <Text style={styles.textStyle}>Yes</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -169,22 +203,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    position: 'absolute',
+    bottom: 30,
+    alignSelf: 'center',
+  },
   flipCameraButton: {
     position: 'absolute',
     bottom: 30, // adjust this value as needed
     left: 50,
     alignSelf: 'center',
-    // other styles...
     backgroundColor: 'white',
     borderRadius: 50,
     width: 70,
     height: 70,
   },
   captureButton: {
-    position: 'absolute',
-    bottom: 30,
-    alignSelf: 'center',
+    marginHorizontal: 20,
     backgroundColor: 'white',
+    borderRadius: 50,
+    width: 70,
+    height: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordButton: {
+    marginHorizontal: 20,
     borderRadius: 50,
     width: 70,
     height: 70,
