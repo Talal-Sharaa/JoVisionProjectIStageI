@@ -1,4 +1,4 @@
-import React, {useContext, useState, useEffect} from 'react';
+import React, {useContext, useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -12,14 +12,17 @@ import {
   RefreshControl,
   Platform,
   PermissionsAndroid,
+  Button,
 } from 'react-native';
-import ImageView from 'react-native-image-viewing';
+import Swiper from 'react-native-swiper';
 import Video from 'react-native-video';
+import Slider from '@react-native-community/slider';
 import {PhotoContext} from '../PhotoContext';
 import {useFocusEffect} from '@react-navigation/native';
 import {createThumbnail} from 'react-native-create-thumbnail';
 import PlayButton from '../../assets/play-button.svg';
 import RNFS from 'react-native-fs';
+import {useSwipeable} from 'react-swipeable';
 
 const GalleryComponent = ({navigation}) => {
   const {savedPhotos, setSavedPhotos} = useContext(PhotoContext);
@@ -32,6 +35,10 @@ const GalleryComponent = ({navigation}) => {
   const [renameText, setRenameText] = useState('');
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [paused, setPaused] = useState(true);
+  const videoPlayer = useRef(null);
 
   useEffect(() => {
     const requestStoragePermission = async () => {
@@ -73,10 +80,6 @@ const GalleryComponent = ({navigation}) => {
 
     loadThumbnails();
   }, [savedPhotos]);
-
-  const images = savedPhotos
-    .filter(photo => !photo.endsWith('.mov'))
-    .map(photo => ({uri: `file://${photo}`}));
 
   const numColumns = 3;
   const {width} = Dimensions.get('window');
@@ -124,7 +127,8 @@ const GalleryComponent = ({navigation}) => {
 
   const handlePressMedia = (item, index) => {
     setCurrentIndex(index);
-    setActionModalVisible(true);
+    setIsVideo(item.endsWith('.mov'));
+    setIsVisible(true);
   };
 
   const onRefresh = () => {
@@ -179,6 +183,42 @@ const GalleryComponent = ({navigation}) => {
     }
   };
 
+  const handleNext = () => {
+    const newIndex = currentIndex + 1;
+    if (newIndex < savedPhotos.length) {
+      setCurrentIndex(newIndex);
+      setIsVideo(savedPhotos[newIndex].endsWith('.mov'));
+    }
+  };
+
+  const handlePrevious = () => {
+    const newIndex = currentIndex - 1;
+    if (newIndex >= 0) {
+      setCurrentIndex(newIndex);
+      setIsVideo(savedPhotos[newIndex].endsWith('.mov'));
+    }
+  };
+
+  const handleForward = () => {
+    videoPlayer.current.seek(currentTime + 5);
+  };
+
+  const handleRewind = () => {
+    videoPlayer.current.seek(currentTime - 5);
+  };
+
+  const handleSliderValueChange = value => {
+    videoPlayer.current.seek(value);
+    setCurrentTime(value);
+  };
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: handleNext,
+    onSwipedRight: handlePrevious,
+    preventScrollOnSwipe: true,
+    trackMouse: true,
+  });
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Gallery</Text>
@@ -192,27 +232,66 @@ const GalleryComponent = ({navigation}) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       />
-      <ImageView
-        images={images}
-        imageIndex={currentIndex}
-        visible={visible && !isVideo}
-        onRequestClose={() => setIsVisible(false)}
-      />
-      {isVideo && (
-        <Modal
-          visible={visible}
-          transparent={true}
-          onRequestClose={() => setIsVisible(false)}>
-          <View style={styles.videoContainer}>
-            <Video
-              source={{uri: `file://${savedPhotos[currentIndex]}`}}
-              style={styles.video}
-              controls={true}
-              resizeMode="contain"
-            />
-          </View>
-        </Modal>
-      )}
+      <Modal
+        visible={visible}
+        transparent={true}
+        onRequestClose={() => setIsVisible(false)}>
+        <View style={styles.swiperContainer} {...swipeHandlers}>
+          <Swiper
+            index={currentIndex}
+            loop={false}
+            onIndexChanged={index => {
+              setCurrentIndex(index);
+              setIsVideo(savedPhotos[index].endsWith('.mov'));
+              setCurrentTime(0); // Reset currentTime when the index changes
+            }}>
+            {savedPhotos.map((item, index) => {
+              if (item.endsWith('.mov')) {
+                return (
+                  <View key={index} style={styles.videoContainer}>
+                    <Video
+                      ref={videoPlayer}
+                      source={{uri: `file://${item}`}}
+                      style={styles.video}
+                      controls={false}
+                      resizeMode="contain"
+                      paused={currentIndex !== index || paused}
+                      onProgress={({currentTime}) =>
+                        setCurrentTime(currentTime)
+                      }
+                      onLoad={({duration}) => setDuration(duration)}
+                    />
+                    <Slider
+                      style={styles.slider}
+                      minimumValue={0}
+                      maximumValue={duration}
+                      value={currentTime}
+                      onValueChange={handleSliderValueChange}
+                    />
+                    <View style={styles.videoControls}>
+                      <Button title="Rewind" onPress={handleRewind} />
+                      <Button
+                        title={paused ? 'Play' : 'Pause'}
+                        onPress={() => setPaused(!paused)}
+                      />
+                      <Button title="Forward" onPress={handleForward} />
+                    </View>
+                  </View>
+                );
+              } else {
+                return (
+                  <View key={index} style={styles.imageContainer}>
+                    <Image
+                      source={{uri: `file://${item}`}}
+                      style={styles.fullScreenImage}
+                    />
+                  </View>
+                );
+              }
+            })}
+          </Swiper>
+        </View>
+      </Modal>
       <Modal
         visible={renameModalVisible}
         transparent={true}
@@ -333,6 +412,10 @@ const styles = StyleSheet.create({
   playButtonContainer: {
     position: 'absolute',
   },
+  swiperContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
   videoContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -341,7 +424,16 @@ const styles = StyleSheet.create({
   },
   video: {
     width: '100%',
-    height: '100%',
+    height: '80%',
+  },
+  videoControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  slider: {
+    width: '90%',
+    marginTop: 20,
   },
   modalContainer: {
     flex: 1,
@@ -385,6 +477,16 @@ const styles = StyleSheet.create({
   videoPlaceholder: {
     color: '#fff',
     textAlign: 'center',
+  },
+  imageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
 });
 
