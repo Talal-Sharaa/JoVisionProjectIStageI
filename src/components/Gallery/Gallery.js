@@ -265,6 +265,15 @@ const GalleryComponent = ({navigation}) => {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
+                setIsVideo(savedPhotos[currentIndex].endsWith('.mov'));
+                setIsVisible(true);
+                setActionModalVisible(false);
+              }}
+              style={styles.modalButton}>
+              <Text style={styles.modalButtonText}>Open Full Screen</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
                 setActionModalVisible(false);
               }}
               style={styles.modalButton}>
