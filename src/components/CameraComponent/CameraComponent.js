@@ -1,20 +1,13 @@
-import React, {useRef, useState, useEffect, useContext} from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  PermissionsAndroid,
-  Platform,
-  useWindowDimensions,
-  Modal,
-} from 'react-native';
+// CameraComponent.js
+import React, {useRef, useState, useContext, useCallback} from 'react';
+import {View, Text, StyleSheet, useWindowDimensions} from 'react-native';
 import {Camera, useCameraDevice} from 'react-native-vision-camera';
 import RNFS from 'react-native-fs';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {PhotoContext} from '../PhotoContext';
-import CameraIcon from '../../assets/flip-camera-ios.svg';
-import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
+import usePermissions from './hooks/usePermissions';
+import CameraControls from './CameraControls';
+import SaveMediaModal from './SaveMediaModal';
 
 const CameraComponent = () => {
   const {height, width} = useWindowDimensions();
@@ -22,39 +15,14 @@ const CameraComponent = () => {
   const [photo, setPhoto] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const {savedPhotos, setSavedPhotos} = useContext(PhotoContext);
-  const navigation = useNavigation();
   const [isRecording, setIsRecording] = useState(false);
-  const [isBackCamera, setIsBackCamera] = useState(true); // State to manage the camera direction
-  const device = isBackCamera ? useCameraDevice('back') : useCameraDevice('front');
+  const [isBackCamera, setIsBackCamera] = useState(true);
+  const device = useCameraDevice(isBackCamera ? 'back' : 'front');
 
-  useEffect(() => {
-    const requestPermissions = async () => {
-      if (Platform.OS === 'android') {
-        try {
-          const cameraGranted = await request(PERMISSIONS.ANDROID.CAMERA);
-          const audioGranted = await request(PERMISSIONS.ANDROID.RECORD_AUDIO);
-          const storageGranted = await request(
-            PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE,
-          );
-
-          if (
-            cameraGranted !== RESULTS.GRANTED ||
-            audioGranted !== RESULTS.GRANTED ||
-            storageGranted !== RESULTS.GRANTED
-          ) {
-            console.log('One or more permissions denied');
-          }
-        } catch (err) {
-          console.warn(err);
-        }
-      }
-    };
-
-    requestPermissions();
-  }, []);
+  usePermissions();
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       return () => {
         setPhoto(null);
         setModalVisible(false);
@@ -67,7 +35,7 @@ const CameraComponent = () => {
       try {
         const photo = await camera.current.takePhoto();
         console.log('Photo taken:', photo);
-        setPhoto(photo.path); // Ensure the correct property is used
+        setPhoto(photo.path);
         setModalVisible(true);
       } catch (error) {
         console.error('Failed to take picture:', error);
@@ -80,11 +48,11 @@ const CameraComponent = () => {
       try {
         setIsRecording(true);
         await camera.current.startRecording({
-          maxDuration: 60, // Set max duration if needed
+          maxDuration: 60,
           flashMode: 'off',
           onRecordingFinished: video => {
             console.log('Recording finished:', video);
-            setPhoto(video.path); // Ensure the correct property is used
+            setPhoto(video.path);
             setModalVisible(true);
           },
           onRecordingError: error => {
@@ -120,23 +88,28 @@ const CameraComponent = () => {
       }`;
 
       try {
-        // Ensure the directory exists
         if (!(await RNFS.exists(directoryPath))) {
           await RNFS.mkdir(directoryPath);
         }
 
-        // Move the media file
+        // Move the media file and confirm it's been moved
         await RNFS.moveFile(photo, filePath);
 
-        // Update the savedPhotos context
-        setSavedPhotos(prevPhotos => [...prevPhotos, filePath]);
+        // Ensure the file exists
+        const fileExists = await RNFS.exists(filePath);
+        if (fileExists) {
+          console.log('Media saved to:', filePath);
 
-        console.log('Media saved to:', filePath);
+          // Update the savedPhotos context
+          setSavedPhotos(prevPhotos => [...prevPhotos, `file://${filePath}`]);
 
-        // Reset states after saving
-        setPhoto(null);
-        setModalVisible(false);
-        setIsRecording(false);
+          // Reset states after saving
+          setPhoto(null);
+          setModalVisible(false);
+          setIsRecording(false);
+        } else {
+          console.error('File does not exist after moving:', filePath);
+        }
       } catch (error) {
         console.error('Failed to save media:', error);
       }
@@ -164,60 +137,24 @@ const CameraComponent = () => {
         ref={camera}
         flashMode="auto"
         style={{height, width}}
-        photo={true}
-        video={true}
-        audio={true}
-        isActive={true}
+        photo
+        video
+        audio
+        isActive
       />
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
-          <Text style={styles.buttonText}>Capture</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.recordButton,
-            {backgroundColor: isRecording ? 'red' : 'white'},
-          ]}
-          onPress={isRecording ? stopRecording : startRecording}>
-          <Text style={styles.buttonText}>
-            {isRecording ? 'Stop' : 'Record'}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.flipCameraButton}
-          onPress={flipCamera}>
-          <Text style={styles.buttonText}>Flip</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <CameraControls
+        isRecording={isRecording}
+        onTakePicture={takePicture}
+        onStartRecording={startRecording}
+        onStopRecording={stopRecording}
+        onFlipCamera={flipCamera}
+      />
+      <SaveMediaModal
         visible={modalVisible}
-        onRequestClose={() => {
-          setModalVisible(!modalVisible);
-        }}>
-        <View style={styles.modalView}>
-          <Text style={styles.modalText}>
-            Do you want to save this {isRecording ? 'video' : 'photo'}?
-          </Text>
-          <View style={styles.modalButtons}>
-            <TouchableOpacity
-              style={[styles.button, styles.buttonSave]}
-              onPress={saveMedia}>
-              <Text style={styles.textStyle}>Yes</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.buttonClose]}
-              onPress={() => {
-                setModalVisible(!modalVisible);
-                setIsRecording(false);
-              }}>
-              <Text style={styles.textStyle}>No</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onRequestClose={() => setModalVisible(!modalVisible)}
+        onSaveMedia={saveMedia}
+        isRecording={isRecording}
+      />
     </View>
   );
 };
@@ -229,75 +166,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    position: 'absolute',
-    bottom: 30,
-    alignSelf: 'center',
-  },
-  flipCameraButton: {
-    marginHorizontal: 20,
-    backgroundColor: 'white',
-    borderRadius: 50,
-    width: 70,
-    height: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  captureButton: {
-    marginHorizontal: 20,
-    backgroundColor: 'white',
-    borderRadius: 50,
-    width: 70,
-    height: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  recordButton: {
-    marginHorizontal: 20,
-    borderRadius: 50,
-    width: 70,
-    height: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonText: {
-    fontSize: 14,
-    color: 'black',
-  },
-  modalView: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 22,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-  },
-  modalText: {
-    marginBottom: 15,
-    textAlign: 'center',
-    color: 'white',
-    fontSize: 18,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '80%',
-  },
-  button: {
-    borderRadius: 20,
-    padding: 10,
-    elevation: 2,
-  },
-  buttonSave: {
-    backgroundColor: '#2196F3',
-  },
-  buttonClose: {
-    backgroundColor: '#f44336',
-  },
-  textStyle: {
-    color: 'white',
-    fontWeight: 'bold',
-    textAlign: 'center',
   },
 });
